@@ -1,16 +1,27 @@
 # Yoast SEO MCP server
 
+[![CI](https://github.com/RosenAdvertising/yoast-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/RosenAdvertising/yoast-mcp/actions/workflows/ci.yml)
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![CI](https://github.com/RosenAdvertising/yoast-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/RosenAdvertising/yoast-mcp/actions/workflows/ci.yml)
+[![MCP 2026-07-28](https://img.shields.io/badge/MCP-2026--07--28-7C3AED.svg)](https://modelcontextprotocol.io)
 
-A read-only [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server for auditing Yoast SEO data on a WordPress site. It connects to the site's WordPress REST API and Yoast endpoints; it does not modify content or settings.
+Give Claude and other MCP clients read-only access to Yoast SEO metadata and scores on a WordPress site.
+
+Yoast SEO MCP server is a [Model Context Protocol](https://modelcontextprotocol.io) server for [Yoast SEO](https://yoast.com/), the WordPress SEO plugin. It registers 10 tools, all read-only. It runs over stdio by default, for desktop clients such as Claude Desktop, and offers an opt-in stateless Streamable HTTP mode that implements MCP specification 2026-07-28. WordPress credentials stay on the machine that runs the server: they come from environment variables, never from tool arguments or requests. The server connects to the site's WordPress REST API and Yoast endpoints and does not modify content or settings.
+
+## Features
+
+- Retrieve Yoast SEO metadata for a page URL, or for a post by ID or slug.
+- Review SEO, readability and inclusive-language scores for recently modified posts.
+- Retrieve Schema Aggregator output for a post type, and the map of enabled Schema Aggregator endpoints.
+- Retrieve SEO metadata for a custom post type archive.
+- List the Yoast abilities a site exposes, with their input and output schemas.
 
 ## Tools
 
-The server provides 10 tools:
+The server registers 10 tools:
 
-| Tool | Description |
+| Tool | What it does |
 | --- | --- |
 | `get_url_seo_metadata` | Retrieve Yoast metadata for an absolute URL. |
 | `get_post_seo_by_id` | Retrieve one post and its Yoast metadata by ID. |
@@ -31,119 +42,105 @@ All tools are read-only. The three score tools use the WordPress Abilities API a
 - A WordPress site using HTTPS
 - A WordPress account with an Application Password
 - Yoast SEO endpoints enabled on the site; score tools additionally require WordPress 6.9+ and the relevant Yoast abilities
-- An MCP-compatible client
+- An MCP client such as Claude Desktop
 
-## Install from source
+## Installation
 
-Install [uv](https://docs.astral.sh/uv/), then clone this repository and sync its locked dependencies:
+Install [uv](https://docs.astral.sh/uv/), then clone the repository and install its locked dependencies:
 
-```sh
+```bash
 git clone https://github.com/RosenAdvertising/yoast-mcp.git
 cd yoast-mcp
 uv sync --locked
 ```
 
-## Configure
+## Configuration
 
-Set these environment variables in the MCP client's environment:
+Set these environment variables in the MCP client's environment. `.env.example` lists them.
 
-| Variable | Required | Purpose |
-| --- | --- | --- |
-| `WORDPRESS_SITE_URL` | Yes | HTTPS site origin only, such as `https://www.example.com`; do not include a path or `/wp-json`. |
-| `WORDPRESS_USERNAME` | Yes | WordPress username for the dedicated integration account. |
-| `WORDPRESS_APPLICATION_PASSWORD` | Yes | Application Password generated for that account. |
-| `YOAST_HTTP_TIMEOUT_SECONDS` | No | Request timeout in seconds; defaults to `20`. |
-| `YOAST_MAX_RETRIES` | No | Retries for HTTP 429 and 5xx responses; defaults to `3`. |
-| `YOAST_RETRY_BACKOFF_SECONDS` | No | Base retry delay in seconds; defaults to `0.5`. |
+| Variable | Required | Default | Purpose |
+| --- | --- | --- | --- |
+| `WORDPRESS_SITE_URL` | Yes | none | HTTPS site origin only, such as `https://www.example.com`; do not include a path or `/wp-json`. |
+| `WORDPRESS_USERNAME` | Yes | none | WordPress username for the dedicated integration account. |
+| `WORDPRESS_APPLICATION_PASSWORD` | Yes | none | Application Password generated for that account. |
+| `YOAST_HTTP_TIMEOUT_SECONDS` | No | `20` | Request timeout in seconds; must be greater than zero. |
+| `YOAST_MAX_RETRIES` | No | `3` | Retries for HTTP 429 and 5xx responses; zero or greater. |
+| `YOAST_RETRY_BACKOFF_SECONDS` | No | `0.5` | Base retry delay in seconds; zero or greater. |
 
 Use a dedicated WordPress user with the minimum capabilities needed by the endpoints. The server sends HTTP Basic Authentication over HTTPS. It reads configuration from the process environment and does not load dotenv files.
 
-## MCP client configuration
+Initialization and tool listing work without credentials. Tool calls return a configuration error until the three required variables are set. Two commands help with local setup:
 
-For clients that launch a local process, configure the absolute path to the cloned repository. For example, an MCP client supporting `cwd` and `env` can use:
+```bash
+uv run yoast-mcp-setup
+uv run yoast-mcp-verify
+```
+
+`yoast-mcp-setup` prints instructions for the environment variables: export them in the environment your MCP client uses, then restart the client. `yoast-mcp-verify` checks the local configuration and exits with code 2 if it is missing or invalid. It does not contact WordPress or prove authentication. Neither command saves or prints secret values.
+
+## Usage with Claude Desktop
+
+Add the server to Claude Desktop's configuration file (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\Claude\claude_desktop_config.json` on Windows):
 
 ```json
 {
   "mcpServers": {
     "yoast-seo": {
       "command": "uv",
-      "args": ["run", "--locked", "--directory", "/path/to/yoast-mcp", "yoast-mcp"],
+      "args": ["run", "--locked", "--directory", "/absolute/path/to/yoast-mcp", "yoast-mcp"],
       "env": {
         "WORDPRESS_SITE_URL": "https://www.example.com",
         "WORDPRESS_USERNAME": "wordpress-integration-user",
-        "WORDPRESS_APPLICATION_PASSWORD": "set-this-in-your-client's-secret-environment"
+        "WORDPRESS_APPLICATION_PASSWORD": "replace-with-your-application-password"
       }
     }
   }
 }
 ```
 
-Replace `/path/to/yoast-mcp` with the local clone path and provide the password through your MCP client's protected environment or secret store.
+Replace `/absolute/path/to/yoast-mcp` with the path of your clone and the example values with your site's, then restart Claude Desktop. Keep real credentials in your client's protected environment or secret store. Any other stdio MCP client uses the same command and arguments.
 
 ## HTTP mode
 
-Stdio stays the default. Set `YOAST_MCP_TRANSPORT=streamable-http` to serve stateless Streamable HTTP (protocol 2026-07-28). The endpoint is `POST /mcp`. Credentials come from the same environment variables as stdio, never from the request.
+Stdio is the default. Set `YOAST_MCP_TRANSPORT=streamable-http` to serve the stateless Streamable HTTP transport from MCP specification 2026-07-28 at `/mcp`. Each request stands alone: no initialization handshake and no `Mcp-Session-Id`. Clients on earlier protocol versions are served on the same endpoint.
 
-> **Security: this endpoint has no authentication and no TLS.** Anyone who can reach the port can run every tool, including write and delete tools, with this server's vendor credentials. Keep the default loopback bind (`127.0.0.1`), or put the server behind an authenticating TLS proxy on a private network. `YOAST_MCP_ALLOWED_HOSTS` and `YOAST_MCP_ALLOWED_ORIGINS` protect against browser DNS rebinding, not against direct callers. A proxy in front of it needs connection and idle timeouts: a legacy-style `GET /mcp` with `Accept: text/event-stream` holds a stream open until the client disconnects.
+> **Security: this endpoint has no authentication and no TLS.** Anyone who can reach the port can run every tool with this server's vendor credentials. Keep the default loopback bind (`127.0.0.1`), or put the server behind an authenticating TLS proxy on a private network. `YOAST_MCP_ALLOWED_HOSTS` and `YOAST_MCP_ALLOWED_ORIGINS` protect against browser DNS rebinding, not against direct callers. A proxy in front of it needs connection and idle timeouts: a legacy-style `GET /mcp` with `Accept: text/event-stream` holds a stream open until the client disconnects.
 
-| Variable | Required | Purpose |
+| Variable | Default | Purpose |
 | --- | --- | --- |
-| `YOAST_MCP_TRANSPORT` | No | `stdio` (default) or `streamable-http`. |
-| `YOAST_MCP_HOST` | No | Bind address. Defaults to `127.0.0.1`. |
-| `PORT` | No | Bind port. Defaults to `8080`. Must be an integer. |
-| `YOAST_MCP_ALLOWED_HOSTS` | When the host is not loopback | Comma-separated `Host` values allowed for DNS-rebinding protection. |
-| `YOAST_MCP_ALLOWED_ORIGINS` | No | Comma-separated `Origin` values. Used only when the host is not loopback. |
-| `WORDPRESS_SITE_URL` | Yes | HTTPS site origin only, such as `https://www.example.com`. |
-| `WORDPRESS_USERNAME` | Yes | WordPress username for the dedicated integration account. |
-| `WORDPRESS_APPLICATION_PASSWORD` | Yes | Application Password generated for that account. |
-| `YOAST_HTTP_TIMEOUT_SECONDS` | No | Request timeout in seconds; defaults to `20`. |
-| `YOAST_MAX_RETRIES` | No | Retries for HTTP 429 and 5xx responses; defaults to `3`. |
-| `YOAST_RETRY_BACKOFF_SECONDS` | No | Base retry delay in seconds; defaults to `0.5`. |
+| `YOAST_MCP_TRANSPORT` | `stdio` | `stdio` or `streamable-http`. An empty value selects `stdio`; any other value exits. |
+| `YOAST_MCP_HOST` | `127.0.0.1` | Bind address. `127.0.0.1`, `localhost` and `::1` use the SDK's built-in Host and Origin checks; any other value requires `YOAST_MCP_ALLOWED_HOSTS`. |
+| `PORT` | `8080` | Port; must be an integer. |
+| `YOAST_MCP_ALLOWED_HOSTS` | unset | Comma-separated `Host` header values accepted on a non-loopback bind, such as `mcp.example.com:8080` or `mcp.example.com:*`. The server exits if it is unset on a non-loopback bind. |
+| `YOAST_MCP_ALLOWED_ORIGINS` | unset | Comma-separated `Origin` values accepted on a non-loopback bind, such as `https://client.example.com`. Requests without an `Origin` header are accepted. |
 
-Loopback binds (`127.0.0.1`, `localhost`, `::1`) rely on the SDK's own origin checks. Any other host requires `YOAST_MCP_ALLOWED_HOSTS`.
+WordPress credentials come from the same configuration as stdio (see [Configuration](#configuration)), never from the request.
 
-```sh
-YOAST_MCP_TRANSPORT=streamable-http \
-YOAST_MCP_HOST=127.0.0.1 \
-PORT=8080 \
-WORDPRESS_SITE_URL=https://www.example.com \
-WORDPRESS_USERNAME=wordpress-integration-user \
-WORDPRESS_APPLICATION_PASSWORD=set-this-in-the-environment \
-uv run --locked --directory /path/to/yoast-mcp yoast-mcp
+```bash
+YOAST_MCP_TRANSPORT=streamable-http PORT=8080 uv run --locked yoast-mcp
 ```
 
-Clients send MCP requests to `http://127.0.0.1:8080/mcp`.
+Point the MCP client at `http://127.0.0.1:8080/mcp`.
+
+## Error handling
+
+A failed tool call returns an MCP error result (`isError`) with a fixed message. WordPress and Yoast error messages, codes and response bodies are never returned or logged.
+
+- Missing or invalid configuration: a message that names `WORDPRESS_SITE_URL`, `WORDPRESS_USERNAME`, `WORDPRESS_APPLICATION_PASSWORD` and `yoast-mcp-setup`. This includes an invalid timeout, retry or backoff value, which is reported when a tool is called, not at startup.
+- HTTP 401, 403, 404 and 429: a short message that says what to check (credentials, account permissions, the record ID, or waiting before a retry). WordPress permission failures arrive as 401 or 403 and get the authentication or access-denied message.
+- HTTP 5xx: a "Service unavailable" message.
+- Any other HTTP status, a response that is not the expected JSON, or a connection failure or timeout: "Request rejected or response invalid. Check inputs and API configuration."
+- Checks made inside a tool, such as an invalid post type name, a page URL outside the configured site, or an endpoint that returns JSON that is not an array, return their own message that names the problem.
+
+HTTP 429 and 5xx responses are retried up to `YOAST_MAX_RETRIES` times (default 3). The delay starts at `YOAST_RETRY_BACKOFF_SECONDS` and doubles on each retry. A `Retry-After` header, in seconds or as an HTTP date, sets the delay instead. Connection failures and timeouts are not retried. The request timeout is `YOAST_HTTP_TIMEOUT_SECONDS` (default 20).
+
+The server exits with status 1 and a message that names the setting when `YOAST_MCP_TRANSPORT` is unsupported, `PORT` is not an integer, or `YOAST_MCP_HOST` is not a loopback address and `YOAST_MCP_ALLOWED_HOSTS` is unset.
 
 ## Behavior and limits
 
 - WordPress collection requests use bounded pagination, with at most 100 records per page and a caller-controlled result limit.
-- HTTP 429 and 5xx responses receive bounded exponential retries and honor `Retry-After` when present.
 - Schema Aggregator page sizes are controlled by Yoast and can vary by post type. The tool accepts the documented page number and returns the response as parsed JSON when possible, otherwise as raw text with its content type.
-- WordPress REST errors, including permission failures, are returned with the API's message and code.
 - Yoast's classic REST feature and Schema Aggregator must be enabled for their respective tools. Schema Aggregator may be disabled in site settings.
-
-## Development
-
-The tests use mocked HTTP responses and do not contact a live WordPress site.
-
-```sh
-uv sync --locked
-uv run --locked pytest -q
-uv run --locked ruff check .
-```
-
-## License
-
-MIT. See [LICENSE](LICENSE).
-
-## Local setup and verification
-
-The server starts and answers MCP initialization and tool listing without credentials.
-Tools report a configuration error until the required environment is provided.
-Run `yoast-mcp-setup` for environment-variable instructions, then restart your MCP
-launcher with those variables exported. Run `yoast-mcp-verify` to validate local
-configuration (exit 2 if missing or invalid). This command does not contact the
-vendor or prove authentication. Neither command saves or prints secret values.
 
 ## Page URL scope
 
@@ -162,3 +159,19 @@ HTTPS without userinfo or fragments; private/local and alternate-numeric IP
 forms remain rejected. The server contacts the configured WordPress API, not the
 page URL. It does not resolve page hostnames locally; administrators remain
 responsible for the configured site's DNS and network behavior.
+
+## Testing
+
+The test suite runs offline and needs no WordPress site: every WordPress and Yoast request is intercepted at the HTTP layer with `respx`. It covers each tool's requests and responses, input validation, page URL scope checks, pagination and retries, error handling that withholds vendor text, configuration loading, and the Streamable HTTP transport including the 2026-07-28 wire format, Host and Origin checks and stateless requests.
+
+```bash
+uv sync --locked
+uv run --locked pytest -q
+uv run --locked ruff check .
+```
+
+CI runs the suite on every push and pull request to `main`.
+
+## License
+
+MIT. See [LICENSE](LICENSE).

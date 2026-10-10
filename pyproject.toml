@@ -1,14 +1,27 @@
 [project]
 name = "yoast-seo-mcp"
 version = "0.1.0"
-description = "Read-only MCP server for Yoast SEO and WordPress SEO metadata"
+description = "MCP server for Yoast SEO: read-only SEO metadata and scores for WordPress."
 license = { text = "MIT" }
 readme = "README.md"
 requires-python = ">=3.12,<3.13"
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Office/Business",
+]
 dependencies = [
     "httpx==0.28.1",
     "mcp>=2.3,<3",
 ]
+
+[project.urls]
+Homepage = "https://github.com/RosenAdvertising/yoast-mcp"
+Repository = "https://github.com/RosenAdvertising/yoast-mcp"
+Issues = "https://github.com/RosenAdvertising/yoast-mcp/issues"
 
 [project.scripts]
 yoast-mcp-setup = "yoast_mcp.setup:setup"
