@@ -1,0 +1,43 @@
+[project]
+name = "yoast-seo-mcp"
+version = "0.1.0"
+description = "Read-only MCP server for Yoast SEO and WordPress SEO metadata"
+license = { text = "MIT" }
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "httpx==0.28.1",
+    "mcp>=2.3,<3",
+]
+
+[project.scripts]
+yoast-mcp-setup = "yoast_mcp.setup:setup"
+yoast-mcp-verify = "yoast_mcp.setup:verify"
+yoast-mcp = "yoast_mcp.server:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
+    "pytest-asyncio>=1.3.0",
+    "respx==0.22.0",
+    "ruff==0.12.7",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["yoast_mcp"]
+
+[tool.pytest.ini_options]
+addopts = "-ra"
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC", "RUF"]
