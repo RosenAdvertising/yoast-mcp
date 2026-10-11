@@ -1,7 +1,7 @@
 # Yoast SEO MCP server
 
 [![CI](https://github.com/RosenAdvertising/yoast-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/RosenAdvertising/yoast-mcp/actions/workflows/ci.yml)
-[![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/downloads/)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![MCP 2026-07-28](https://img.shields.io/badge/MCP-2026--07--28-7C3AED.svg)](https://modelcontextprotocol.io)
 
@@ -38,7 +38,7 @@ All tools are read-only. The three score tools use the WordPress Abilities API a
 
 ## Requirements
 
-- Python 3.12
+- Python 3.11+
 - A WordPress site using HTTPS
 - A WordPress account with an Application Password
 - Yoast SEO endpoints enabled on the site; score tools additionally require WordPress 6.9+ and the relevant Yoast abilities
